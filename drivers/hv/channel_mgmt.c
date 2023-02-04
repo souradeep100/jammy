@@ -6,6 +6,7 @@
  *   Haiyang Zhang <haiyangz@microsoft.com>
  *   Hank Janssen  <hjanssen@microsoft.com>
  */
+#include "linux/gfp.h"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/kernel.h>
@@ -1256,6 +1257,15 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
 		check_ready_for_suspend_event();
 }
 
+void vmbus_onoffer_dummy(void) {
+	if(copy_offer)
+		vmbus_onoffer((struct vmbus_channel_message_header *)copy_offer);
+}
+
+void vmbus_onoffer_rescind_dummy(void) {
+	if(copy_rescind)
+		vmbus_onoffer_rescind((struct vmbus_channel_message_header *)copy_rescind);
+}
 void vmbus_hvsock_device_unregister(struct vmbus_channel *channel)
 {
 	BUG_ON(!is_hvsock_channel(channel));
@@ -1541,6 +1551,9 @@ channel_message_table[CHANNELMSG_COUNT] = {
  *
  * This is invoked in the vmbus worker thread context.
  */
+struct vmbus_channel_rescind_offer *copy_rescind = NULL;
+struct vmbus_channel_offer_channel *copy_offer = NULL;
+
 void vmbus_onmessage(struct vmbus_channel_message_header *hdr)
 {
 	trace_vmbus_on_message(hdr);
@@ -1549,6 +1562,27 @@ void vmbus_onmessage(struct vmbus_channel_message_header *hdr)
 	 * vmbus_on_msg_dpc() makes sure the hdr->msgtype here can not go
 	 * out of bound and the message_handler pointer can not be NULL.
 	 */
+	if(hdr->msgtype == CHANNELMSG_RESCIND_CHANNELOFFER) {
+		if((struct vmbus_channel_rescind_offer*)hdr->child_relid == 0x14) {
+			if (copy_rescind == NULL) {
+					copy_rescind = kzalloc(sizeof(struct vmbus_channel_rescind_offer),
+									GFP_KERNEL);
+					memcpy(copy_rescind, (struct vmbus_channel_rescind_offer*)hdr,
+							sizeof(struct vmbus_channel_rescind_offer));
+			}
+		}
+	}
+	if(hdr->msgtype == CHANNELMSG_OFFERCHANNEL) {
+		if((struct vmbus_channel_offer_channel*)hdr->child_relid == 0x14) {
+			if(copy_offer == NULL) {
+				copy_offer = kzalloc(sizeof(struct vmbus_channel_offer_channel), 
+									GFP_KERNEL);
+				memcpy(copy_offer,  (struct vmbus_channel_offer_channel*)hdr,
+							sizeof(struct vmbus_channel_offer_channel));
+
+			}
+		}
+	}
 	channel_message_table[hdr->msgtype].message_handler(hdr);
 }
 

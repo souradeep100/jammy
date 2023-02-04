@@ -7,6 +7,8 @@
  *   Hank Janssen  <hjanssen@microsoft.com>
  *   K. Y. Srinivasan <kys@microsoft.com>
  */
+#include "asm/string_64.h"
+#include "linux/workqueue.h"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/init.h>
@@ -56,6 +58,9 @@ static long __percpu *vmbus_evt;
 int vmbus_irq;
 int vmbus_interrupt;
 
+
+extern struct vmbus_channel_offer_channel * copy_offer;
+extern struct vmbus_channel_rescind_offer * copy_rescind;
 /*
  * Boolean to control whether to report panic messages over Hyper-V.
  *
@@ -545,7 +550,10 @@ static ssize_t channel_vp_mapping_show(struct device *dev,
 	}
 
 	mutex_unlock(&vmbus_connection.channel_mutex);
-
+	if (copy_rescind)
+		vmbus_onoffer_rescind_dummy();
+	if (copy_offer)
+		vmbus_onoffer_dummy();
 	return tot_written;
 }
 static DEVICE_ATTR_RO(channel_vp_mapping);
@@ -1091,6 +1099,7 @@ void vmbus_on_msg_dpc(unsigned long data)
 	struct hv_message msg_copy, *msg = (struct hv_message *)page_addr +
 				  VMBUS_MESSAGE_SINT;
 	struct vmbus_channel_message_header *hdr;
+	struct vmbus_channel_offer_channel * offer;
 	enum vmbus_channel_message_type msgtype;
 	const struct vmbus_channel_message_table_entry *entry;
 	struct onmessage_work_context *ctx;
