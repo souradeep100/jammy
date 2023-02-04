@@ -58,9 +58,8 @@ static long __percpu *vmbus_evt;
 int vmbus_irq;
 int vmbus_interrupt;
 
-
-extern struct vmbus_channel_offer_channel * copy_offer;
-extern struct vmbus_channel_rescind_offer * copy_rescind;
+extern struct vmbus_channel_rescind_offer *copy_rescind;
+extern struct vmbus_channel_offer_channel *copy_offer;
 /*
  * Boolean to control whether to report panic messages over Hyper-V.
  *

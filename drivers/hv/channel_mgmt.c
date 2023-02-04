@@ -6,6 +6,7 @@
  *   Haiyang Zhang <haiyangz@microsoft.com>
  *   Hank Janssen  <hjanssen@microsoft.com>
  */
+#include "linux/export.h"
 #include "linux/gfp.h"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -26,6 +27,12 @@
 #include "hyperv_vmbus.h"
 
 static void init_vp_index(struct vmbus_channel *channel);
+
+struct vmbus_channel_rescind_offer *copy_rescind = NULL;
+struct vmbus_channel_offer_channel *copy_offer = NULL;
+
+EXPORT_SYMBOL(copy_offer);
+EXPORT_SYMBOL(copy_rescind);
 
 const struct vmbus_device vmbus_devs[] = {
 	/* IDE */
@@ -1551,8 +1558,6 @@ channel_message_table[CHANNELMSG_COUNT] = {
  *
  * This is invoked in the vmbus worker thread context.
  */
-struct vmbus_channel_rescind_offer *copy_rescind = NULL;
-struct vmbus_channel_offer_channel *copy_offer = NULL;
 
 void vmbus_onmessage(struct vmbus_channel_message_header *hdr)
 {
@@ -1563,7 +1568,8 @@ void vmbus_onmessage(struct vmbus_channel_message_header *hdr)
 	 * out of bound and the message_handler pointer can not be NULL.
 	 */
 	if(hdr->msgtype == CHANNELMSG_RESCIND_CHANNELOFFER) {
-		if((struct vmbus_channel_rescind_offer*)hdr->child_relid == 0x14) {
+		struct vmbus_channel_rescind_offer *tmp = (struct vmbus_channel_rescind_offer*)hdr;
+		if(tmp->child_relid == 0x14) {
 			if (copy_rescind == NULL) {
 					copy_rescind = kzalloc(sizeof(struct vmbus_channel_rescind_offer),
 									GFP_KERNEL);
@@ -1573,7 +1579,8 @@ void vmbus_onmessage(struct vmbus_channel_message_header *hdr)
 		}
 	}
 	if(hdr->msgtype == CHANNELMSG_OFFERCHANNEL) {
-		if((struct vmbus_channel_offer_channel*)hdr->child_relid == 0x14) {
+		struct vmbus_channel_offer_channel *tmp_offer = (struct vmbus_channel_offer_channel *)hdr;
+		if(tmp_offer->child_relid == 0x14) {
 			if(copy_offer == NULL) {
 				copy_offer = kzalloc(sizeof(struct vmbus_channel_offer_channel), 
 									GFP_KERNEL);
